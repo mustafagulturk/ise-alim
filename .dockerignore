@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/.next
+**/storage
+**/storage-test
+**/.env
+**/.env.local
+docs
+.git

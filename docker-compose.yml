@@ -1,0 +1,60 @@
+# Tek komutla tüm platform: docker compose up --build
+# Ardından http://localhost:3000 adresine gidin (demo: demo@kadro.dev / Demo1234!)
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kadro
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment: &api-env
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/kadro
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-docker-demo-secret-degistirin}
+      STORAGE_DIR: /data/storage
+      WEB_ORIGIN: http://localhost:3000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SEED_DEMO: "true"
+    volumes: [storage:/data/storage]
+    ports: ["4000:4000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    command: ["node", "dist/worker.js"]
+    environment:
+      <<: *api-env
+      SEED_DEMO: "false"
+    volumes: [storage:/data/storage]
+    depends_on: [api]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args: { NEXT_PUBLIC_LIVE_URL: http://localhost:4000 }
+    environment:
+      API_URL: http://api:4000
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  storage:

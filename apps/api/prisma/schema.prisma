@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  RECRUITER
+  INTERVIEWER
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum WorkType {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+enum Stage {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+enum AiStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum Recommendation {
+  STRONG_NO
+  NO
+  YES
+  STRONG_YES
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model Company {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  about       String       @default("")
+  website     String?
+  brandColor  String       @default("#6d28d9")
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  jobs        Job[]
+  candidates  Candidate[]
+  emails      EmailMessage[]
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+  memberships   Membership[]
+  refreshTokens RefreshToken[]
+  activities    Activity[]
+  interviews    InterviewPanelist[]
+  scorecards    Scorecard[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      Role
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  companyId String
+  family    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([family])
+}
+
+model Job {
+  id             String        @id @default(cuid())
+  companyId      String
+  title          String
+  slug           String
+  department     String
+  location       String
+  workType       WorkType
+  employmentType String        @default("Tam zamanlı")
+  description    String
+  salaryMin      Int?
+  salaryMax      Int?
+  status         JobStatus     @default(DRAFT)
+  createdAt      DateTime      @default(now())
+  publishedAt    DateTime?
+  closedAt       DateTime?
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requirements   Requirement[]
+  applications   Application[]
+
+  @@unique([companyId, slug])
+  @@index([companyId, status])
+}
+
+model Requirement {
+  id       String  @id @default(cuid())
+  jobId    String
+  text     String
+  keywords String[]
+  weight   Int     @default(3)
+  mustHave Boolean @default(false)
+  position Int     @default(0)
+  job      Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+}
+
+model Candidate {
+  id           String        @id @default(cuid())
+  companyId    String
+  name         String
+  email        String
+  phone        String?
+  city         String?
+  linkedin     String?
+  createdAt    DateTime      @default(now())
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@unique([companyId, email])
+}
+
+model Application {
+  id            String    @id @default(cuid())
+  jobId         String
+  candidateId   String
+  stage         Stage     @default(APPLIED)
+  /// Hunide ulaşılan en ileri aşama (reddedilse bile korunur).
+  maxStage      Stage     @default(APPLIED)
+  rank          Float     @default(0)
+  source        String    @default("Kariyer sayfası")
+  coverLetter   String?
+  cvFileKey     String
+  cvFileName    String
+  cvMime        String
+  cvText        String    @default("")
+  trackingToken String    @unique
+  aiStatus      AiStatus  @default(PENDING)
+  aiError       String?
+  provider      String?
+  score         Int?
+  analysis      Json?
+  rejectReason  String?
+  stageChangedAt DateTime @default(now())
+  createdAt     DateTime  @default(now())
+  hiredAt       DateTime?
+  searchVector  Unsupported("tsvector")? @default(dbgenerated("to_tsvector('turkish'::regconfig, COALESCE(\"cvText\", ''::text))"))
+  job           Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  activities    Activity[]
+  interviews    Interview[]
+  emails        EmailMessage[]
+
+  @@unique([jobId, candidateId])
+  @@index([jobId, stage, rank])
+  @@index([searchVector], map: "Application_searchVector_idx", type: Gin)
+}
+
+model Activity {
+  id            String      @id @default(cuid())
+  applicationId String
+  actorId       String?
+  type          String
+  data          Json        @default("{}")
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor         User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId, createdAt])
+}
+
+model Interview {
+  id            String              @id @default(cuid())
+  applicationId String
+  title         String
+  startsAt      DateTime
+  durationMin   Int                 @default(45)
+  location      String
+  cancelledAt   DateTime?
+  createdAt     DateTime            @default(now())
+  application   Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  panelists     InterviewPanelist[]
+  scorecards    Scorecard[]
+
+  @@index([startsAt])
+}
+
+model InterviewPanelist {
+  interviewId String
+  userId      String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([interviewId, userId])
+}
+
+model Scorecard {
+  id             String         @id @default(cuid())
+  interviewId    String
+  authorId       String
+  ratings        Json
+  recommendation Recommendation
+  notes          String         @default("")
+  createdAt      DateTime       @default(now())
+  interview      Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  author         User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([interviewId, authorId])
+}
+
+model EmailMessage {
+  id            String       @id @default(cuid())
+  companyId     String
+  applicationId String?
+  to            String
+  subject       String
+  body          String
+  template      String
+  status        EmailStatus  @default(QUEUED)
+  sentAt        DateTime?
+  createdAt     DateTime     @default(now())
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+}
