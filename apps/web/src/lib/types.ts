@@ -102,11 +102,32 @@ export interface Activity {
   actor: { id: string; name: string } | null;
 }
 
+export interface KitQuestion {
+  requirementId: string | null;
+  topic: string;
+  question: string;
+  why: string;
+  goodSigns: string[];
+  redFlags: string[];
+  followUp: string;
+}
+
+export interface InterviewKit {
+  focus: string;
+  questions: KitQuestion[];
+  provider: "claude" | "local";
+  model?: string;
+  generatedAt: string;
+}
+
+export type KitAnswers = Record<string, { note: string; signal: "good" | "weak" | null }>;
+
 export interface Scorecard {
   id: string;
   ratings: Record<string, number>;
   recommendation: Recommendation;
   notes: string;
+  answers: KitAnswers;
   createdAt: string;
   author: { id: string; name: string };
 }
@@ -118,6 +139,7 @@ export interface Interview {
   durationMin: number;
   location: string;
   cancelledAt: string | null;
+  kit: InterviewKit | null;
   panelists: { user: { id: string; name: string } }[];
   scorecards: Scorecard[];
   hiddenScorecards?: number;

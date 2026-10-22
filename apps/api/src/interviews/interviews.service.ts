@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
+import type { Analysis } from "../ai/analysis";
+import { anonymize } from "../ai/anonymize";
+import { aiModel, anthropic } from "../ai/client";
+import { type StoredKit, claudeKit, localKit } from "../ai/interview-kit";
 import type { AuthUser } from "../common/auth";
 import { EventsService } from "../common/events";
 import { PrismaService } from "../common/prisma.service";
@@ -15,6 +20,8 @@ const include = {
 
 @Injectable()
 export class InterviewsService {
+  private readonly log = new Logger(InterviewsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
@@ -53,7 +60,59 @@ export class InterviewsService {
       data: { applicationId, actorId: user.userId, type: "interview", data: { title: body.title, startsAt: body.startsAt } },
     });
     await this.events.publish({ companyId: user.companyId, type: "activity.created", jobId: app.jobId, applicationId });
-    return interview;
+    // Önce anında yerel kit yazılır; Claude varsa arka planda daha iyisiyle değiştirilir ve panel canlı tazelenir.
+    const kit = await this.generateKit(user.companyId, interview.id, false);
+    if (anthropic()) void this.generateKit(user.companyId, interview.id, true).catch((e) => this.log.warn(`Mülakat kiti hazırlanamadı: ${e}`));
+    return { ...interview, kit };
+  }
+
+  /** Mülakat kitini (yeniden) üretir. Yalnızca İK, şirket sahibi ya da o mülakatın mülakatçısı isteyebilir. */
+  async kit(user: AuthUser, id: string) {
+    const iv = await this.find(user, id);
+    if (user.role === "INTERVIEWER" && !iv.panelists.some((p) => p.userId === user.userId)) {
+      throw new ForbiddenException("Yalnızca bu mülakatın mülakatçıları kit hazırlayabilir.");
+    }
+    return this.generateKit(user.companyId, id, true);
+  }
+
+  private async generateKit(companyId: string, id: string, useClaude: boolean): Promise<StoredKit> {
+    const iv = await this.prisma.interview.findUniqueOrThrow({
+      where: { id },
+      include: {
+        application: {
+          include: {
+            candidate: { select: { name: true } },
+            job: { include: { requirements: { orderBy: { position: "asc" } } } },
+            interviews: { where: { id: { not: id } }, include: { scorecards: true } },
+          },
+        },
+      },
+    });
+    const app = iv.application;
+    const input = {
+      jobTitle: app.job.title,
+      interviewTitle: iv.title,
+      durationMin: iv.durationMin,
+      analysis: app.analysis as Analysis | null,
+      requirements: app.job.requirements.map(({ id: rid, text, keywords, weight, mustHave }) => ({ id: rid, text, keywords, weight, mustHave })),
+      previousNotes: app.interviews.flatMap((o) => o.scorecards.map((s) => ({ interview: o.title, recommendation: s.recommendation, notes: s.notes }))),
+      cvText: anonymize(app.cvText, app.candidate.name),
+    };
+
+    let kit: StoredKit | null = null;
+    const client = useClaude ? anthropic() : null;
+    if (client) {
+      try {
+        kit = { ...(await claudeKit(client, aiModel(), input)), provider: "claude", model: aiModel(), generatedAt: new Date().toISOString() };
+      } catch (e) {
+        this.log.warn(`Claude ile kit hazırlanamadı, yerel şablon kullanılıyor: ${e}`);
+      }
+    }
+    kit ??= { ...localKit(input), provider: "local", generatedAt: new Date().toISOString() };
+
+    await this.prisma.interview.update({ where: { id }, data: { kit: kit as unknown as Prisma.InputJsonValue } });
+    await this.events.publish({ companyId, type: "activity.created", jobId: app.jobId, applicationId: app.id });
+    return kit;
   }
 
   async cancel(user: AuthUser, id: string) {

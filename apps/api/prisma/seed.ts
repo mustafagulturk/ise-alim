@@ -6,7 +6,9 @@
 import "reflect-metadata";
 import { type Prisma, PrismaClient, type Stage } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import type { Analysis } from "../src/ai/analysis";
 import { extractText } from "../src/ai/cv-text";
+import { localKit } from "../src/ai/interview-kit";
 import { keywordsFrom } from "../src/ai/text";
 import { ScoringService } from "../src/ai/scoring.service";
 import { furthest } from "../src/applications/stages";
@@ -253,7 +255,10 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
   let at = from.getTime();
   let stage: Stage = "APPLIED";
   let maxStage: Stage = "APPLIED";
-  const app = await prisma.application.findUniqueOrThrow({ where: { id: appId }, include: { candidate: true } });
+  const app = await prisma.application.findUniqueOrThrow({
+    where: { id: appId },
+    include: { candidate: true, job: { include: { requirements: { orderBy: { position: "asc" } } } } },
+  });
 
   for (const next of path) {
     at = Math.min(at + (1 + rnd() * 3) * DAY, NOW - 3600_000);
@@ -262,6 +267,16 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
       const startsAt = new Date(at + (2 + rnd() * 4) * DAY);
       startsAt.setHours(10 + Math.floor(rnd() * 6), rnd() < 0.5 ? 0 : 30, 0, 0);
       const done = startsAt.getTime() < NOW;
+      const kit = localKit({
+        jobTitle,
+        interviewTitle: "Teknik mülakat",
+        durationMin: 60,
+        analysis: app.analysis as unknown as Analysis,
+        requirements: app.job.requirements,
+        previousNotes: [],
+        cvText: app.cvText,
+      });
+      const answerNotes = ["Somut örnek verdi, ölçerek ilerlemiş.", "Kendi payını net anlattı.", "Genel kaldı, takip sorusunda zorlandı.", "Alternatifleri karşılaştırabildi."];
       await prisma.interview.create({
         data: {
           applicationId: appId,
@@ -270,6 +285,7 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
           durationMin: 60,
           location: rnd() < 0.5 ? "Google Meet: meet.google.com/kdr-demo-abc" : "Maslak ofis, 4. kat toplantı odası",
           createdAt: new Date(at),
+          kit: { ...kit, provider: "local", generatedAt: new Date(at).toISOString() } as unknown as Prisma.InputJsonValue,
           panelists: { create: panel.map((userId) => ({ userId })) },
           scorecards: done
             ? {
@@ -280,6 +296,12 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
                     ratings: { "Teknik yetkinlik": base + (rnd() < 0.5 ? 1 : 0), "Problem çözme": base, İletişim: Math.min(5, base + 1), "Takım uyumu": base },
                     recommendation: base >= 4 ? (rnd() < 0.5 ? "STRONG_YES" : "YES") : rnd() < 0.6 ? "YES" : "NO",
                     notes: base >= 4 ? "Güçlü aday, bir sonraki aşamaya geçmeli." : "Temel bilgisi iyi, kıdem beklentimizin biraz altında.",
+                    answers: Object.fromEntries(
+                      [0, 1, 2].map((i) => {
+                        const good = base >= 4 ? rnd() < 0.8 : rnd() < 0.4;
+                        return [i, { note: good ? pick([answerNotes[0], answerNotes[1], answerNotes[3]]) : answerNotes[2], signal: good ? "good" : "weak" }];
+                      }),
+                    ),
                     createdAt: new Date(startsAt.getTime() + 2 * 3600_000),
                   };
                 }),

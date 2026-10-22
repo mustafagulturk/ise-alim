@@ -2,13 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardCheck, Download, FileText, Link2, Mail, MapPin, Phone, RefreshCw, Send, Video } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardCheck, Download, FileText, Link2, ListChecks, Mail, MapPin, Phone, RefreshCw, Send, ThumbsDown, ThumbsUp, Video } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { EmailDialog } from "@/components/EmailDialog";
 import { InterviewDialog } from "@/components/InterviewDialog";
+import { KitDialog } from "@/components/KitDialog";
 import { RejectDialog } from "@/components/RejectDialog";
 import { ScorecardDialog } from "@/components/ScorecardDialog";
 import { Timeline } from "@/components/Timeline";
@@ -50,7 +51,7 @@ function CvViewer({ id, app }: { id: string; app: ApplicationDetail }) {
   );
 }
 
-function InterviewCard({ iv, onScorecard, canScore }: { iv: Interview; onScorecard: () => void; canScore: boolean }) {
+function InterviewCard({ iv, onScorecard, onKit, canScore }: { iv: Interview; onScorecard: () => void; onKit: () => void; canScore: boolean }) {
   const past = new Date(iv.startsAt).getTime() < Date.now();
   const yes = iv.scorecards.filter((s) => s.recommendation.includes("YES")).length;
   return (
@@ -63,7 +64,14 @@ function InterviewCard({ iv, onScorecard, canScore }: { iv: Interview; onScoreca
         </div>
         <button onClick={() => openFile(`/interviews/${iv.id}/ics`, "mulakat.ics")} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10" title="Takvime ekle (.ics)"><CalendarPlus className="size-4" /></button>
       </div>
-      <div className="mt-3 flex -space-x-2">{iv.panelists.map((p) => <span key={p.user.id} title={p.user.name}><Avatar name={p.user.name} id={p.user.id} size="sm" /></span>)}</div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="flex -space-x-2">{iv.panelists.map((p) => <span key={p.user.id} title={p.user.name}><Avatar name={p.user.name} id={p.user.id} size="sm" /></span>)}</div>
+        {!iv.cancelledAt && (iv.kit || canScore) && (
+          <button onClick={onKit} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-brand-600 transition hover:bg-brand-50 dark:hover:bg-brand-500/10">
+            <ListChecks className="size-3.5" /> Mülakat kiti{iv.kit && ` · ${iv.kit.questions.length} soru`}
+          </button>
+        )}
+      </div>
       {iv.scorecards.length > 0 && (
         <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-white/5">
           <p className="text-xs font-medium text-slate-500">{yes}/{iv.scorecards.length} mülakatçı olumlu</p>
@@ -77,6 +85,16 @@ function InterviewCard({ iv, onScorecard, canScore }: { iv: Interview; onScoreca
                 {Object.entries(s.ratings).map(([k, v]) => <span key={k}>{k}: <b className="text-slate-700 dark:text-slate-200">{v}/5</b></span>)}
               </div>
               {s.notes && <p className="mt-1.5 text-slate-600 dark:text-slate-300">{s.notes}</p>}
+              {iv.kit && Object.keys(s.answers ?? {}).length > 0 && (
+                <ul className="mt-1.5 space-y-0.5 border-t border-slate-200/70 pt-1.5 dark:border-white/10">
+                  {Object.entries(s.answers).filter(([, a]) => a.note || a.signal).map(([i, a]) => (
+                    <li key={i} className="flex items-start gap-1.5 text-slate-600 dark:text-slate-300">
+                      {a.signal === "good" ? <ThumbsUp className="mt-0.5 size-3 shrink-0 text-emerald-600" /> : a.signal === "weak" ? <ThumbsDown className="mt-0.5 size-3 shrink-0 text-rose-600" /> : <span className="size-3 shrink-0" />}
+                      <span><b>{iv.kit!.questions[Number(i)]?.topic ?? `Soru ${Number(i) + 1}`}:</b> {a.note || (a.signal === "good" ? "iyi" : "zayıf")}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </div>
@@ -94,6 +112,7 @@ export default function ApplicationPage({ params }: { params: Promise<{ id: stri
   const qc = useQueryClient();
   const [dialog, setDialog] = useState<"email" | "interview" | "reject" | null>(null);
   const [scoring, setScoring] = useState<Interview | null>(null);
+  const [kitFor, setKitFor] = useState<string | null>(null);
   const { data: app, isLoading } = useQuery({
     queryKey: ["application", id],
     queryFn: () => api.get<ApplicationDetail>(`/applications/${id}`),
@@ -204,7 +223,7 @@ export default function ApplicationPage({ params }: { params: Promise<{ id: stri
               {app.interviews.length ? (
                 <div className="space-y-3">
                   {app.interviews.map((iv) => (
-                    <InterviewCard key={iv.id} iv={iv} canScore={!!me && (iv.panelists.some((p) => p.user.id === me.user.id) || me.role === "OWNER")} onScorecard={() => setScoring(iv)} />
+                    <InterviewCard key={iv.id} iv={iv} canScore={!!me && (iv.panelists.some((p) => p.user.id === me.user.id) || me.role === "OWNER")} onScorecard={() => setScoring(iv)} onKit={() => setKitFor(iv.id)} />
                   ))}
                 </div>
               ) : <p className="py-4 text-center text-sm text-slate-500">Henüz mülakat planlanmadı.</p>}
@@ -249,6 +268,13 @@ export default function ApplicationPage({ params }: { params: Promise<{ id: stri
       <EmailDialog open={dialog === "email"} onClose={() => setDialog(null)} applicationId={id} />
       <InterviewDialog open={dialog === "interview"} onClose={() => setDialog(null)} applicationId={id} />
       <RejectDialog open={dialog === "reject"} count={1} onClose={() => setDialog(null)} onConfirm={(reason, email) => { move.mutate({ stage: "REJECTED", reason, email: email ? "rejected" : undefined }); setDialog(null); }} />
+      <KitDialog
+        interview={app.interviews.find((iv) => iv.id === kitFor) ?? null}
+        applicationId={id}
+        requirements={app.job.requirements}
+        canRegenerate={editable || (!!me && !!app.interviews.find((iv) => iv.id === kitFor)?.panelists.some((p) => p.user.id === me.user.id))}
+        onClose={() => setKitFor(null)}
+      />
       {me && scoring && <ScorecardDialog interview={scoring} applicationId={id} userId={me.user.id} onClose={() => setScoring(null)} />}
     </>
   );

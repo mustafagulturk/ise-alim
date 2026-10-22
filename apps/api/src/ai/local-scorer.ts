@@ -3,7 +3,7 @@ import { experienceYears } from "./experience";
 import { keywordsFrom, norm, sentences } from "./text";
 
 /** Bilinen beceriler ve eş anlamlıları: CV'de hangisi geçerse geçsin aynı beceri sayılır. */
-const SYNONYMS: Record<string, string[]> = {
+export const SYNONYMS: Record<string, string[]> = {
   javascript: ["javascript", "js", "ecmascript", "es6"],
   typescript: ["typescript", "ts"],
   react: ["react", "react.js", "reactjs", "next.js", "nextjs"],
@@ -45,7 +45,7 @@ const SKILL_NAMES: Record<string, string> = {
   liderlik: "Liderlik",
 };
 
-function variants(keyword: string) {
+export function variants(keyword: string) {
   const k = norm(keyword);
   return SYNONYMS[k] ?? [k];
 }
@@ -54,7 +54,7 @@ function variants(keyword: string) {
  * Kelime başından eşleştirir. Türkçe eklemeli bir dil olduğu için uzun kelimelerde ek serbest
  * ("geliştirme" -> "geliştirmeye"), kısa kısaltmalarda (js, ui) tam kelime aranır.
  */
-function contains(haystack: string, needle: string) {
+export function contains(haystack: string, needle: string) {
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const tail = /^[a-z]{4,}$/.test(needle) ? "" : "($|[^a-z0-9#+])";
   return new RegExp(`(^|[^a-z0-9#+])${escaped}${tail}`).test(haystack);

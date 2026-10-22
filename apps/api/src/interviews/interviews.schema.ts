@@ -15,5 +15,8 @@ export const ScorecardBody = z.object({
   ratings: z.record(z.string(), z.number().int().min(1).max(5)),
   recommendation: z.enum(["STRONG_NO", "NO", "YES", "STRONG_YES"]),
   notes: z.string().trim().max(4000).default(""),
+  answers: z
+    .record(z.string(), z.object({ note: z.string().trim().max(1000).default(""), signal: z.enum(["good", "weak"]).nullable().default(null) }))
+    .default({}),
 });
 export type ScorecardBody = z.infer<typeof ScorecardBody>;

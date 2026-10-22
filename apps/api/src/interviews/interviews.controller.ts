@@ -31,6 +31,11 @@ export class InterviewsController {
     return this.interviews.cancel(u, id);
   }
 
+  @Post("interviews/:id/kit")
+  kit(@CurrentUser() u: AuthUser, @Param("id") id: string) {
+    return this.interviews.kit(u, id);
+  }
+
   @Put("interviews/:id/scorecard")
   scorecard(@CurrentUser() u: AuthUser, @Param("id") id: string, @Body(new ZodPipe(ScorecardBody)) body: ScorecardBody) {
     return this.interviews.scorecard(u, id, body);

@@ -213,6 +213,8 @@ model Interview {
   startsAt      DateTime
   durationMin   Int                 @default(45)
   location      String
+  /// Adaya özel mülakat kiti (sorular, iyi cevap işaretleri). Yapay zekâ ya da yerel şablonla üretilir.
+  kit           Json?
   cancelledAt   DateTime?
   createdAt     DateTime            @default(now())
   application   Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
@@ -238,6 +240,8 @@ model Scorecard {
   ratings        Json
   recommendation Recommendation
   notes          String         @default("")
+  /// Kit sorularına göre alınan notlar: { [soruNo]: { note, signal } }
+  answers        Json           @default("{}")
   createdAt      DateTime       @default(now())
   interview      Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
   author         User           @relation(fields: [authorId], references: [id], onDelete: Cascade)

@@ -239,13 +239,20 @@ describe("işe alım akışı", () => {
     const iv = await http.post(`/api/applications/${appId}/interviews`).set(auth(owner))
       .send({ title: "Teknik mülakat", startsAt: new Date(Date.now() + 86400_000).toISOString(), durationMin: 60, location: "Google Meet", panelistIds: [panelist.userId] })
       .expect(201);
+    // Mülakat kiti kayıtla birlikte hazırlanır (anahtar yokken yerel şablonla), süreye göre soru sayısı belirlenir.
+    expect(iv.body.kit.provider).toBe("local");
+    expect(iv.body.kit.questions).toHaveLength(6);
+    expect(iv.body.kit.questions[0].requirementId).toBeTruthy();
+    const kit = await http.post(`/api/interviews/${iv.body.id}/kit`).set(auth(owner)).expect(201);
+    expect(kit.body.focus).toBeTruthy();
     const ics = await http.get(`/api/interviews/${iv.body.id}/ics`).set(auth(owner)).expect(200);
     expect(ics.text).toContain("BEGIN:VEVENT");
     expect(ics.text).toContain("Deniz Aday");
 
     const interviewer = (await http.post("/api/auth/login").send({ email: "mulakat@kuzey.test", password: "Sifre1234" })).body.accessToken;
-    const card = { ratings: { "Teknik yetkinlik": 4 }, recommendation: "YES", notes: "" };
-    await http.put(`/api/interviews/${iv.body.id}/scorecard`).set(auth(interviewer)).send(card).expect(200);
+    const card = { ratings: { "Teknik yetkinlik": 4 }, recommendation: "YES", notes: "", answers: { 0: { note: "Somut örnek verdi", signal: "good" } } };
+    const saved = await http.put(`/api/interviews/${iv.body.id}/scorecard`).set(auth(interviewer)).send(card).expect(200);
+    expect(saved.body.answers["0"]).toEqual({ note: "Somut örnek verdi", signal: "good" });
 
     // Yöneticinin formu yokken mülakatçı yöneticinin formunu göremez; yönetici kendi formunu doldurmadan da görebilir.
     const asOwner = await http.get(`/api/applications/${appId}`).set(auth(owner)).expect(200);

@@ -1,10 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from "@nestjs/common";
 import { z } from "zod";
-import { DEFAULT_MODEL } from "../ai/claude-scorer";
+import { aiModel, anthropic } from "../ai/client";
 import { suggestRequirements } from "../ai/requirements-suggest";
 import { type AuthUser, CurrentUser, Roles } from "../common/auth";
-import { config } from "../common/config";
 import { ZodPipe } from "../common/zod.pipe";
 import { JobBody, SuggestBody } from "./jobs.schema";
 import { JobsService } from "./jobs.service";
@@ -13,8 +11,6 @@ const StatusBody = z.object({ status: z.enum(["DRAFT", "OPEN", "CLOSED"]) });
 
 @Controller("jobs")
 export class JobsController {
-  private readonly ai = config().ANTHROPIC_API_KEY ? new Anthropic({ apiKey: config().ANTHROPIC_API_KEY }) : null;
-
   constructor(private readonly jobs: JobsService) {}
 
   @Get()
@@ -63,6 +59,6 @@ export class JobsController {
   @HttpCode(200)
   @Post("suggest-requirements")
   suggest(@Body(new ZodPipe(SuggestBody)) body: z.infer<typeof SuggestBody>) {
-    return suggestRequirements(this.ai, config().ANTHROPIC_MODEL || DEFAULT_MODEL, body.title, body.description);
+    return suggestRequirements(anthropic(), aiModel(), body.title, body.description);
   }
 }
