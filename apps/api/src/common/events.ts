@@ -6,7 +6,7 @@ export const EVENTS_CHANNEL = "kadro:events";
 
 export interface LiveEvent {
   companyId: string;
-  type: "application.created" | "application.updated" | "application.moved" | "application.scored" | "activity.created";
+  type: "application.created" | "application.updated" | "application.moved" | "application.scored" | "activity.created" | "interview.booked";
   jobId?: string;
   applicationId?: string;
   actorId?: string;

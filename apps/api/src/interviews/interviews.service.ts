@@ -60,10 +60,15 @@ export class InterviewsService {
       data: { applicationId, actorId: user.userId, type: "interview", data: { title: body.title, startsAt: body.startsAt } },
     });
     await this.events.publish({ companyId: user.companyId, type: "activity.created", jobId: app.jobId, applicationId });
-    // Önce anında yerel kit yazılır; Claude varsa arka planda daha iyisiyle değiştirilir ve panel canlı tazelenir.
-    const kit = await this.generateKit(user.companyId, interview.id, false);
-    if (anthropic()) void this.generateKit(user.companyId, interview.id, true).catch((e) => this.log.warn(`Mülakat kiti hazırlanamadı: ${e}`));
+    const kit = await this.prepareKit(user.companyId, interview.id);
     return { ...interview, kit };
+  }
+
+  /** Önce anında yerel kit yazılır; Claude varsa arka planda daha iyisiyle değiştirilir ve panel canlı tazelenir. */
+  async prepareKit(companyId: string, interviewId: string) {
+    const kit = await this.generateKit(companyId, interviewId, false);
+    if (anthropic()) void this.generateKit(companyId, interviewId, true).catch((e) => this.log.warn(`Mülakat kiti hazırlanamadı: ${e}`));
+    return kit;
   }
 
   /** Mülakat kitini (yeniden) üretir. Yalnızca İK, şirket sahibi ya da o mülakatın mülakatçısı isteyebilir. */

@@ -48,6 +48,12 @@ enum Recommendation {
   STRONG_YES
 }
 
+enum InviteStatus {
+  PENDING
+  BOOKED
+  CANCELLED
+}
+
 enum EmailStatus {
   QUEUED
   SENT
@@ -186,6 +192,7 @@ model Application {
   candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   activities    Activity[]
   interviews    Interview[]
+  invites       InterviewInvite[]
   emails        EmailMessage[]
 
   @@unique([jobId, candidateId])
@@ -222,6 +229,25 @@ model Interview {
   scorecards    Scorecard[]
 
   @@index([startsAt])
+}
+
+/// Adaya gönderilen saat seçenekleri. Aday birini seçince mülakat oluşur, davet kapanır.
+model InterviewInvite {
+  id            String       @id @default(cuid())
+  applicationId String
+  createdById   String?
+  title         String
+  durationMin   Int
+  location      String
+  panelistIds   String[]
+  slots         DateTime[]
+  status        InviteStatus @default(PENDING)
+  interviewId   String?      @unique
+  createdAt     DateTime     @default(now())
+  bookedAt      DateTime?
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, status])
 }
 
 model InterviewPanelist {

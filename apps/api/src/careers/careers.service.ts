@@ -8,6 +8,7 @@ import { PrismaService } from "../common/prisma.service";
 import { StorageService } from "../common/storage.service";
 import { rankBetween, token } from "../common/util";
 import { EmailsService } from "../emails/emails.service";
+import { InvitesService } from "../interviews/invites.service";
 import { CV_QUEUE, type CvJob } from "../queue/queues";
 import type { ApplyBody } from "./careers.schema";
 
@@ -28,6 +29,7 @@ export class CareersService {
     private readonly storage: StorageService,
     private readonly events: EventsService,
     private readonly emails: EmailsService,
+    private readonly invites: InvitesService,
     @InjectQueue(CV_QUEUE) private readonly cvQueue: Queue<CvJob>,
   ) {}
 
@@ -140,6 +142,7 @@ export class CareersService {
       steps: CANDIDATE_STEPS.map((s, i) => ({ label: s.label, done: !closed && i < current, current: i === current })),
       stageLabel: closed ? "Süreç tamamlandı" : STAGE_LABEL[app.stage],
       interviews: app.interviews.map((i) => ({ id: i.id, title: i.title, startsAt: i.startsAt, durationMin: i.durationMin, location: i.location })),
+      invite: closed || app.stage === "HIRED" ? null : await this.invites.forCandidate(app.id),
       emails: app.emails,
     };
   }

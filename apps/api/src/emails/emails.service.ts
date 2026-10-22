@@ -17,7 +17,7 @@ export class EmailsService {
     @InjectQueue(EMAIL_QUEUE) private readonly queue: Queue<EmailJob>,
   ) {}
 
-  async preview(applicationId: string, template: TemplateKey) {
+  async preview(applicationId: string, template: TemplateKey, extra: Record<string, string> = {}) {
     const app = await this.prisma.application.findUniqueOrThrow({
       where: { id: applicationId },
       include: { candidate: true, job: { include: { company: true } } },
@@ -27,13 +27,14 @@ export class EmailsService {
       pozisyon: app.job.title,
       sirket: app.job.company.name,
       takip_linki: `${config().WEB_ORIGIN}/basvuru/${app.trackingToken}`,
+      ...extra,
     };
     const t = TEMPLATES[template];
     return { to: app.candidate.email, subject: render(t.subject, vars), body: render(t.body, vars), companyId: app.job.companyId };
   }
 
-  async send(applicationId: string, template: TemplateKey, override?: { subject?: string; body?: string }) {
-    const p = await this.preview(applicationId, template);
+  async send(applicationId: string, template: TemplateKey, override?: { subject?: string; body?: string }, extra?: Record<string, string>) {
+    const p = await this.preview(applicationId, template, extra);
     const email = await this.prisma.emailMessage.create({
       data: {
         companyId: p.companyId,

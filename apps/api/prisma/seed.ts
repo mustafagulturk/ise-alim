@@ -15,6 +15,7 @@ import { furthest } from "../src/applications/stages";
 import { StorageService } from "../src/common/storage.service";
 import { token } from "../src/common/util";
 import { TEMPLATES, render } from "../src/emails/templates";
+import { freeSlots, spread } from "../src/interviews/availability";
 import { renderCv, type CvData } from "./seed/cv-pdf";
 import { CITIES, FIRST, LAST, ROLES, SCHOOLS, SOURCES, type RoleProfile } from "./seed/data";
 
@@ -109,6 +110,7 @@ async function main() {
     prisma.scorecard.deleteMany(),
     prisma.interviewPanelist.deleteMany(),
     prisma.interview.deleteMany(),
+    prisma.interviewInvite.deleteMany(),
     prisma.emailMessage.deleteMany(),
     prisma.application.deleteMany(),
     prisma.candidate.deleteMany(),
@@ -240,6 +242,24 @@ async function main() {
     await prisma.application.update({ where: { id: a.id }, data: { rank: n * 1000 } });
   }
 
+  // Ön değerlendirmedeki bir adaya saat seçenekleri gönderilmiş olsun: takip sayfasında seçim ekranı görünür.
+  const invitee = await prisma.application.findFirst({
+    where: { stage: "SCREENING", job: { companyId: company.id, status: "OPEN" } },
+    orderBy: { score: "desc" },
+    include: { candidate: true, job: true },
+  });
+  if (invitee) {
+    const panel = [interviewer.id, cto.id];
+    const upcoming = await prisma.interview.findMany({ where: { startsAt: { gte: new Date() }, panelists: { some: { userId: { in: panel } } } } });
+    const slots = spread(freeSlots(upcoming.map((i) => ({ start: i.startsAt, end: new Date(i.startsAt.getTime() + i.durationMin * 60_000) })), { durationMin: 45, from: new Date(), days: 7 }), 5);
+    const sentAt = new Date(NOW - 5 * 3600_000);
+    await prisma.interviewInvite.create({
+      data: { applicationId: invitee.id, createdById: recruiter.id, title: "Teknik mülakat", durationMin: 45, location: "Google Meet", panelistIds: panel, slots, createdAt: sentAt },
+    });
+    await prisma.activity.create({ data: { applicationId: invitee.id, actorId: recruiter.id, type: "invite", data: { title: "Teknik mülakat", options: slots.length }, createdAt: sentAt } });
+    await sendEmail(company.id, invitee.id, "schedule", invitee.candidate.name, invitee.job.title, invitee.trackingToken, sentAt, { mulakat: "teknik mülakat" });
+  }
+
   console.log(`\nHazır: ${total} başvuru. Giriş: demo@kadro.dev / Demo1234!`);
 }
 
@@ -344,8 +364,8 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
   }
 }
 
-async function sendEmail(companyId: string, applicationId: string, template: keyof typeof TEMPLATES, name: string, job: string, tracking: string, at: Date) {
-  const vars = { aday: name.split(" ")[0], pozisyon: job, sirket: "Lumen Teknoloji", takip_linki: `http://localhost:3000/basvuru/${tracking}` };
+async function sendEmail(companyId: string, applicationId: string, template: keyof typeof TEMPLATES, name: string, job: string, tracking: string, at: Date, extra: Record<string, string> = {}) {
+  const vars = { aday: name.split(" ")[0], pozisyon: job, sirket: "Lumen Teknoloji", takip_linki: `http://localhost:3000/basvuru/${tracking}`, ...extra };
   await prisma.emailMessage.create({
     data: {
       companyId,

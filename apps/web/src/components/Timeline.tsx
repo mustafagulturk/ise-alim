@@ -1,11 +1,11 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CalendarPlus, ClipboardCheck, FileInput, Mail, MessageSquare, Send, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarClock, CalendarPlus, ClipboardCheck, FileInput, Mail, MessageSquare, Send, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { recLabel, relative, stageMeta } from "@/lib/format";
+import { dateTime, recLabel, relative, stageMeta } from "@/lib/format";
 import type { Activity, Recommendation, Stage } from "@/lib/types";
 import { Avatar, Button } from "./ui";
 
@@ -17,6 +17,8 @@ const ICON = {
   email: { icon: Mail, cls: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300" },
   interview: { icon: CalendarPlus, cls: "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" },
   scorecard: { icon: ClipboardCheck, cls: "bg-teal-100 text-teal-600 dark:bg-teal-500/15 dark:text-teal-300" },
+  invite: { icon: CalendarClock, cls: "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" },
+  booked: { icon: CalendarCheck, cls: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300" },
 } as const;
 
 function describe(a: Activity) {
@@ -26,6 +28,7 @@ function describe(a: Activity) {
     case "applied":
       return <>Aday <b>{d.source ?? "kariyer sayfası"}</b> üzerinden başvurdu</>;
     case "stage":
+      if (!a.actor) return <>{d.to === "INTERVIEW" ? "Aday saat seçince otomatik olarak" : "Aday"} <b>{stageMeta[d.from as Stage]?.label}</b> → <b>{stageMeta[d.to as Stage]?.label}</b> aşamasına geçti{d.reason ? <span className="text-slate-500"> ({d.reason})</span> : null}</>;
       return <><b>{who}</b> adayı <b>{stageMeta[d.from as Stage]?.label}</b> → <b>{stageMeta[d.to as Stage]?.label}</b> aşamasına taşıdı{d.reason ? <span className="text-slate-500"> ({d.reason})</span> : null}</>;
     case "scored":
       return <>CV {d.provider === "claude" ? "Claude ile" : "yerel puanlayıcıyla"} değerlendirildi: <b>{d.score} puan</b></>;
@@ -33,6 +36,10 @@ function describe(a: Activity) {
       return <><b>{who}</b> e-posta gönderdi: <span className="text-slate-500">{d.subject}</span></>;
     case "interview":
       return <><b>{who}</b> mülakat planladı: <span className="text-slate-500">{d.title}</span></>;
+    case "invite":
+      return <><b>{who}</b> adaya <b>{d.options} saat seçeneği</b> gönderdi: <span className="text-slate-500">{d.title}</span></>;
+    case "booked":
+      return <>Aday mülakat saatini seçti: <b>{dateTime(String(d.startsAt))}</b></>;
     case "scorecard":
       return <><b>{who}</b> değerlendirme formu doldurdu: <span className={recLabel[d.recommendation as Recommendation]?.cls}>{recLabel[d.recommendation as Recommendation]?.label}</span></>;
     default:

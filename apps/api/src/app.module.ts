@@ -20,6 +20,7 @@ import { EmailsService } from "./emails/emails.service";
 import { HealthController } from "./health.controller";
 import { InterviewsController } from "./interviews/interviews.controller";
 import { InterviewsService } from "./interviews/interviews.service";
+import { InvitesService } from "./interviews/invites.service";
 import { JobsController } from "./jobs/jobs.controller";
 import { JobsService } from "./jobs/jobs.service";
 import { QueueRoot, Queues } from "./queue/queues";
@@ -55,6 +56,7 @@ export const Jwt = JwtModule.register({ global: true, secret: config().JWT_SECRE
     ApplicationsService,
     CareersService,
     InterviewsService,
+    InvitesService,
     AnalyticsService,
     EmailsService,
     LiveGateway,

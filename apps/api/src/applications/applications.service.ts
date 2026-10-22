@@ -129,6 +129,7 @@ export class ApplicationsService {
           },
         },
         emails: { orderBy: { createdAt: "desc" } },
+        invites: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" }, take: 1 },
       },
     });
     if (!app) throw new NotFoundException("Başvuru bulunamadı.");

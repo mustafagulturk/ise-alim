@@ -23,6 +23,33 @@ Başvurunuzu inceledik ve sizinle tanışmak istiyoruz. Mülakat detayları içi
 Görüşmek üzere,
 {sirket} İşe Alım Ekibi`,
   },
+  schedule: {
+    label: "Mülakat saati seçimi",
+    subject: "{sirket} | {pozisyon} mülakatı için saatini seç",
+    body: `Merhaba {aday},
+
+Başvurunu inceledik ve seninle bir {mulakat} yapmak istiyoruz. Ekibimizin uygun olduğu saatleri aşağıdaki sayfaya ekledik; sana en uygun olanı seçmen yeterli. Seçtiğin anda mülakat takvimimize işlenir.
+
+{takip_linki}
+
+Görüşmek üzere,
+{sirket} İşe Alım Ekibi`,
+  },
+  confirmed: {
+    label: "Mülakat onayı",
+    subject: "{sirket} | Mülakatın onaylandı: {tarih}",
+    body: `Merhaba {aday},
+
+{pozisyon} pozisyonu için {mulakat} saatin onaylandı.
+
+Tarih: {tarih} ({sure} dakika)
+Yer: {yer}
+
+Takvimine eklemek ve detayları görmek için: {takip_linki}
+
+Görüşmek üzere,
+{sirket} İşe Alım Ekibi`,
+  },
   offer: {
     label: "Teklif",
     subject: "{sirket} | Size bir teklifimiz var",

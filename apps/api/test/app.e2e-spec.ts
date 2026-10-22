@@ -266,4 +266,56 @@ describe("işe alım akışı", () => {
     expect(funnel.INTERVIEW).toBe(1);
     expect(funnel.OFFER).toBe(0);
   });
+
+  it("adaya saat seçtirir: seçilen saat mülakata dönüşür, aynı saat ikinci kez alınamaz", async () => {
+    const members = (await http.get("/api/company/members").set(auth(owner))).body as { userId: string; role: string }[];
+    const panelistIds = [members.find((m) => m.role === "INTERVIEWER")!.userId];
+    const apply = async (name: string, email: string) => {
+      const res = await http.post("/api/careers/kuzey-yazilim/jobs/backend-gelistirici/apply")
+        .field("name", name).field("email", email).field("kvkk", "true")
+        .attach("cv", pdf, { filename: "cv.pdf", contentType: "application/pdf" }).expect(201);
+      const a = await prisma.application.findUniqueOrThrow({ where: { trackingToken: res.body.trackingToken } });
+      return { id: a.id, token: res.body.trackingToken as string };
+    };
+    const ece = await apply("Ece Saat", "ece@ornek.com");
+    const can = await apply("Can Saat", "can@ornek.com");
+
+    // Önceki testte bu mülakatçıya planlanan mülakat (yarın) önerilerde çakışmaz.
+    const sug = await http.get(`/api/applications/${ece.id}/invite-slots?panelistIds=${panelistIds.join(",")}&durationMin=45`).set(auth(owner)).expect(200);
+    expect(sug.body.suggested.length).toBeGreaterThan(0);
+    const existing = await prisma.interview.findFirstOrThrow({ where: { panelists: { some: { userId: panelistIds[0] } } } });
+    const all = sug.body.days.flatMap((d: { slots: string[] }) => d.slots).map((s: string) => new Date(s).getTime());
+    expect(all.some((t: number) => Math.abs(t - existing.startsAt.getTime()) < 60 * 60_000)).toBe(false);
+
+    const slots = sug.body.suggested.slice(0, 3);
+    queued.length = 0;
+    const body = { title: "Teknik mülakat", durationMin: 45, location: "Google Meet", panelistIds, slots };
+    await http.post(`/api/applications/${ece.id}/invites`).set(auth(owner)).send(body).expect(201);
+    await http.post(`/api/applications/${can.id}/invites`).set(auth(owner)).send(body).expect(201);
+    expect(queued.filter((q) => q.name === "send")).toHaveLength(2);
+
+    const track = await http.get(`/api/track/${ece.token}`).expect(200);
+    expect(track.body.invite.slots).toHaveLength(3);
+    expect(track.body.invite.slots.every((s: { available: boolean }) => s.available)).toBe(true);
+
+    await http.post(`/api/track/${ece.token}/book`).send({ startsAt: new Date(Date.now() + 86400_000 * 30).toISOString() }).expect(400);
+    const booked = await http.post(`/api/track/${ece.token}/book`).send({ startsAt: slots[0] }).expect(200);
+    expect(new Date(booked.body.startsAt).toISOString()).toBe(new Date(slots[0]).toISOString());
+
+    const detail = await http.get(`/api/applications/${ece.id}`).set(auth(owner)).expect(200);
+    expect(detail.body.stage).toBe("INTERVIEW");
+    expect(detail.body.interviews).toHaveLength(1);
+    expect(detail.body.interviews[0].kit.questions.length).toBeGreaterThan(0);
+    expect(detail.body.invites).toHaveLength(0);
+    const ics = await http.get(`/api/track/${ece.token}/interviews/${booked.body.id}/ics`).expect(200);
+    expect(ics.text).toContain("BEGIN:VEVENT");
+
+    // Diğer aday aynı mülakatçının aynı saatini artık alamaz, ama kalan seçenekler açık.
+    const other = await http.get(`/api/track/${can.token}`).expect(200);
+    expect(other.body.invite.slots.map((s: { available: boolean }) => s.available)).toEqual([false, true, true]);
+    await http.post(`/api/track/${can.token}/book`).send({ startsAt: slots[0] }).expect(409);
+    await http.post(`/api/track/${can.token}/book`).send({ startsAt: slots[1] }).expect(200);
+    // Aynı davetle ikinci kez saat seçilemez.
+    await http.post(`/api/track/${can.token}/book`).send({ startsAt: slots[2] }).expect(400);
+  });
 });

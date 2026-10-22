@@ -96,7 +96,7 @@ export interface Analysis {
 
 export interface Activity {
   id: string;
-  type: "applied" | "stage" | "note" | "scored" | "email" | "interview" | "scorecard";
+  type: "applied" | "stage" | "note" | "scored" | "email" | "interview" | "scorecard" | "invite" | "booked";
   data: Record<string, unknown>;
   createdAt: string;
   actor: { id: string; name: string } | null;
@@ -146,6 +146,22 @@ export interface Interview {
   application?: { id: string; stage: Stage; score: number | null; candidate: { name: string; email: string }; job: { id: string; title: string } };
 }
 
+export interface InterviewInvite {
+  id: string;
+  title: string;
+  durationMin: number;
+  location: string;
+  panelistIds: string[];
+  slots: string[];
+  status: "PENDING" | "BOOKED" | "CANCELLED";
+  createdAt: string;
+}
+
+export interface SlotSuggestions {
+  days: { date: string; slots: string[] }[];
+  suggested: string[];
+}
+
 export interface Email {
   id: string;
   to: string;
@@ -179,6 +195,7 @@ export interface ApplicationDetail {
   activities: Activity[];
   interviews: Interview[];
   emails: Email[];
+  invites: InterviewInvite[];
   otherApplications: { id: string; stage: Stage; score: number | null; createdAt: string; job: { id: string; title: string } }[];
 }
 

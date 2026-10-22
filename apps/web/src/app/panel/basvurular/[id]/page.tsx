@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { ArrowLeft, CalendarDays, CalendarPlus, ClipboardCheck, Download, FileText, Link2, ListChecks, Mail, MapPin, Phone, RefreshCw, Send, ThumbsDown, ThumbsUp, Video } from "lucide-react";
+import { ArrowLeft, CalendarClock, CalendarDays, CalendarPlus, ClipboardCheck, Download, FileText, Link2, ListChecks, Mail, MapPin, Phone, RefreshCw, Send, ThumbsDown, ThumbsUp, Video } from "lucide-react";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -16,8 +16,8 @@ import { Timeline } from "@/components/Timeline";
 import { Avatar, Button, Skeleton, StageBadge, Tabs } from "@/components/ui";
 import { api, fileUrl, openFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { STAGES, date, dateTime, recLabel, relative, stageMeta } from "@/lib/format";
-import type { ApplicationDetail, Interview, Stage } from "@/lib/types";
+import { STAGES, date, dateTime, longDay, recLabel, relative, stageMeta, time } from "@/lib/format";
+import type { ApplicationDetail, Interview, InterviewInvite, Stage } from "@/lib/types";
 import { useBlind } from "@/lib/use-blind";
 
 function CvViewer({ id, app }: { id: string; app: ApplicationDetail }) {
@@ -105,6 +105,27 @@ function InterviewCard({ iv, onScorecard, onKit, canScore }: { iv: Interview; on
   );
 }
 
+function InviteCard({ invite, onCancel, cancelling }: { invite: InterviewInvite; onCancel?: () => void; cancelling: boolean }) {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-1.5 font-medium"><CalendarClock className="size-4 animate-pulse text-amber-600" /> Adayın saat seçmesi bekleniyor</p>
+          <p className="mt-0.5 text-xs text-slate-500">{invite.title} · {invite.durationMin} dk · {invite.slots.length} seçenek · {relative(invite.createdAt)} gönderildi</p>
+        </div>
+        {onCancel && <button onClick={onCancel} disabled={cancelling} className="text-xs font-medium text-rose-600 hover:underline disabled:opacity-50">İptal</button>}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {invite.slots.map((s) => (
+          <span key={s} className="rounded-md bg-white px-2 py-0.5 text-xs tabular-nums text-slate-600 ring-1 ring-amber-200 dark:bg-white/5 dark:text-slate-300 dark:ring-amber-500/20" title={longDay(s)}>
+            {date(s).replace(/ \d{4}$/, "")} {time(s)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { me, can } = useAuth();
@@ -125,6 +146,14 @@ export default function ApplicationPage({ params }: { params: Promise<{ id: stri
       toast.success(`Aday "${stageMeta[v.stage].label}" aşamasına taşındı`);
       qc.invalidateQueries({ queryKey: ["application", id] });
       qc.invalidateQueries({ queryKey: ["board", app?.job.id] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const cancelInvite = useMutation({
+    mutationFn: (inviteId: string) => api.patch(`/invites/${inviteId}/cancel`),
+    onSuccess: () => {
+      toast.info("Saat seçim daveti iptal edildi");
+      qc.invalidateQueries({ queryKey: ["application", id] });
     },
     onError: (e) => toast.error(e.message),
   });
@@ -220,13 +249,18 @@ export default function ApplicationPage({ params }: { params: Promise<{ id: stri
                 <h3 className="font-semibold">Mülakatlar</h3>
                 {editable && <button onClick={() => setDialog("interview")} className="text-sm font-medium text-brand-600 hover:underline">+ Planla</button>}
               </div>
+              {app.invites[0] && (
+                <div className="mb-3">
+                  <InviteCard invite={app.invites[0]} cancelling={cancelInvite.isPending} onCancel={editable ? () => cancelInvite.mutate(app.invites[0].id) : undefined} />
+                </div>
+              )}
               {app.interviews.length ? (
                 <div className="space-y-3">
                   {app.interviews.map((iv) => (
                     <InterviewCard key={iv.id} iv={iv} canScore={!!me && (iv.panelists.some((p) => p.user.id === me.user.id) || me.role === "OWNER")} onScorecard={() => setScoring(iv)} onKit={() => setKitFor(iv.id)} />
                   ))}
                 </div>
-              ) : <p className="py-4 text-center text-sm text-slate-500">Henüz mülakat planlanmadı.</p>}
+              ) : !app.invites[0] && <p className="py-4 text-center text-sm text-slate-500">Henüz mülakat planlanmadı.</p>}
             </div>
           )}
 

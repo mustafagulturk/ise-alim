@@ -8,7 +8,7 @@ import { tokens } from "./api";
 import { useAuth } from "./auth";
 
 interface LiveEvent {
-  type: "application.created" | "application.updated" | "application.moved" | "application.scored" | "activity.created";
+  type: "application.created" | "application.updated" | "application.moved" | "application.scored" | "activity.created" | "interview.booked";
   jobId?: string;
   applicationId?: string;
   actorId?: string;
@@ -45,6 +45,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       if (e.type === "application.created") toast("Yeni başvuru geldi", { description: "CV yapay zekâ ile değerlendiriliyor…" });
       if (e.type === "application.scored") toast.success(`CV değerlendirildi: ${String(e.data?.score ?? "")} puan`);
       if (e.type === "application.moved" && !mine && e.actorId) toast("Bir ekip arkadaşın adayı taşıdı");
+      if (e.type === "interview.booked") {
+        qc.invalidateQueries({ queryKey: ["interviews"] });
+        toast.success(`${String(e.data?.name ?? "Aday")} mülakat saatini seçti`, {
+          description: new Date(String(e.data?.startsAt)).toLocaleString("tr-TR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }),
+        });
+      }
     });
     return () => {
       socket.disconnect();

@@ -20,3 +20,23 @@ export const ScorecardBody = z.object({
     .default({}),
 });
 export type ScorecardBody = z.infer<typeof ScorecardBody>;
+
+const ids = z.array(z.string()).min(1, "En az bir mülakatçı seçin.").max(8);
+
+export const SlotQuery = z.object({
+  panelistIds: z.preprocess((v) => (typeof v === "string" ? v.split(",").filter(Boolean) : v), ids),
+  durationMin: z.coerce.number().int().min(15).max(240).default(60),
+});
+export type SlotQuery = z.infer<typeof SlotQuery>;
+
+export const InviteBody = z.object({
+  title: z.string().trim().min(2, "Başlık girin.").max(100),
+  durationMin: z.number().int().min(15).max(240),
+  location: z.string().trim().min(2, "Yer ya da toplantı bağlantısı girin.").max(300),
+  panelistIds: ids,
+  slots: z.array(z.iso.datetime({ offset: true })).min(1, "En az bir saat seçin.").max(10, "En fazla 10 seçenek gönderebilirsiniz."),
+  sendEmail: z.boolean().default(true),
+});
+export type InviteBody = z.infer<typeof InviteBody>;
+
+export const BookBody = z.object({ startsAt: z.iso.datetime({ offset: true, error: "Bir saat seçin." }) });
