@@ -35,6 +35,8 @@ export interface RoleProfile {
   /** Becerinin CV'de geçme olasılığı adayın "kalitesine" göre ölçeklenir. Önce gelenler daha temel beceriler. */
   skills: { name: string; bullet: string }[];
   extras: string[];
+  /** Başka bir rolün becerileri (ör. full stack profiller); yetenek havuzunun ilanlar arası eşleşme bulabilmesi için. */
+  crossover?: { name: string; bullet: string }[];
   count: number;
 }
 
@@ -91,6 +93,10 @@ export const ROLES: RoleProfile[] = [
       { name: "NestJS", bullet: "NestJS ile modüler bir bildirim servisi tasarladım ve 3 kişilik ekibe mentorluk yaptım" },
     ],
     extras: ["Git", "Linux", "REST", "GraphQL", "AWS", "Agile/Scrum"],
+    crossover: [
+      { name: "React", bullet: "React ile şirket içi operasyon panelini geliştirip backend servislerine bağladım" },
+      { name: "Next.js", bullet: "Next.js ile müşteri portalını sunucu tarafı render ederek SEO trafiğini %30 artırdım" },
+    ],
   },
   {
     key: "frontend",
@@ -139,6 +145,10 @@ export const ROLES: RoleProfile[] = [
       { name: "Redux", bullet: "Redux'tan TanStack Query'ye geçişi yöneterek durum kodunu %50 azalttım" },
     ],
     extras: ["HTML", "CSS", "Tailwind CSS", "Git", "Vite", "Storybook"],
+    crossover: [
+      { name: "Node.js", bullet: "Node.js ve Express ile arayüzün ihtiyaç duyduğu BFF katmanını yazdım" },
+      { name: "PostgreSQL", bullet: "PostgreSQL üzerinde raporlama sorguları yazarak panel ekranlarını besledim" },
+    ],
   },
   {
     key: "design",

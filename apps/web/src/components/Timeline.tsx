@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, CalendarCheck, CalendarClock, CalendarPlus, ClipboardCheck, FileInput, Mail, MessageSquare, Send, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarCheck, UserPlus, CalendarClock, CalendarPlus, ClipboardCheck, FileInput, Mail, MessageSquare, Send, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -18,6 +18,7 @@ const ICON = {
   interview: { icon: CalendarPlus, cls: "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" },
   scorecard: { icon: ClipboardCheck, cls: "bg-teal-100 text-teal-600 dark:bg-teal-500/15 dark:text-teal-300" },
   invite: { icon: CalendarClock, cls: "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" },
+  sourced: { icon: UserPlus, cls: "bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300" },
   booked: { icon: CalendarCheck, cls: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300" },
 } as const;
 
@@ -38,6 +39,8 @@ function describe(a: Activity) {
       return <><b>{who}</b> mülakat planladı: <span className="text-slate-500">{d.title}</span></>;
     case "invite":
       return <><b>{who}</b> adaya <b>{d.options} saat seçeneği</b> gönderdi: <span className="text-slate-500">{d.title}</span></>;
+    case "sourced":
+      return <><b>{who}</b> adayı yetenek havuzundan bu ilana ekledi <span className="text-slate-500">(önceki başvuru: {d.fromJob})</span></>;
     case "booked":
       return <>Aday mülakat saatini seçti: <b>{dateTime(String(d.startsAt))}</b></>;
     case "scorecard":

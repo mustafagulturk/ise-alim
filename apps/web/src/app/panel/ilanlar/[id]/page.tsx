@@ -1,13 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Columns3, Copy, ExternalLink, Pencil, Search, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Columns3, Copy, ExternalLink, Pencil, Search, Sparkles, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Board } from "@/components/Board";
 import { RejectDialog } from "@/components/RejectDialog";
+import { TalentPoolDialog } from "@/components/TalentPool";
 import { Badge, Button, PageHeader, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +25,7 @@ export default function PipelinePage({ params }: { params: Promise<{ id: string 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showRejected, setShowRejected] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [pool, setPool] = useState(false);
 
   const job = useQuery({ queryKey: ["job", id], queryFn: () => api.get<Job>(`/jobs/${id}`) });
   const board = useQuery({ queryKey: ["board", id], queryFn: () => api.get<Card[]>(`/jobs/${id}/applications`) });
@@ -76,6 +78,7 @@ export default function PipelinePage({ params }: { params: Promise<{ id: string 
           <>
             {job.data.status === "OPEN" && (
               <>
+                <Button variant="soft" size="sm" icon={<Users className="size-4" />} onClick={() => setPool(true)}>Yetenek havuzu</Button>
                 <Button variant="ghost" size="sm" icon={<Copy className="size-4" />} onClick={() => navigator.clipboard.writeText(careerUrl).then(() => toast.success("İlan bağlantısı kopyalandı"))}>Bağlantı</Button>
                 <a href={careerUrl} target="_blank"><Button variant="ghost" size="sm" icon={<ExternalLink className="size-4" />}>Önizle</Button></a>
               </>
@@ -140,6 +143,7 @@ export default function PipelinePage({ params }: { params: Promise<{ id: string 
         </div>
       )}
 
+      <TalentPoolDialog open={pool} onClose={() => setPool(false)} jobId={id} canAdd={can("OWNER", "RECRUITER")} />
       <RejectDialog
         open={rejecting}
         count={selected.size}

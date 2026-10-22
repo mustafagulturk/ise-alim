@@ -17,5 +17,6 @@ export const ApplyBody = z.object({
   coverLetter: optional(3000),
   source: optional(60),
   kvkk: z.literal("true", { error: "Devam etmek için aydınlatma metnini onaylayın." }),
+  pool: z.enum(["true", "false"]).optional(),
 });
 export type ApplyBody = z.infer<typeof ApplyBody>;

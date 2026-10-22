@@ -88,8 +88,9 @@ export class CareersService {
     const email = body.email.toLowerCase();
     const candidate = await this.prisma.candidate.upsert({
       where: { companyId_email: { companyId: job.companyId, email } },
-      create: { companyId: job.companyId, email, name: body.name, phone: body.phone, city: body.city, linkedin: body.linkedin },
-      update: { name: body.name, phone: body.phone ?? undefined, city: body.city ?? undefined, linkedin: body.linkedin ?? undefined },
+      create: { companyId: job.companyId, email, name: body.name, phone: body.phone, city: body.city, linkedin: body.linkedin, poolConsent: body.pool === "true" },
+      // Son başvurudaki tercih geçerlidir: onay kutusunu boş bırakan aday havuzdan çıkar.
+      update: { name: body.name, phone: body.phone ?? undefined, city: body.city ?? undefined, linkedin: body.linkedin ?? undefined, poolConsent: body.pool === "true" },
     });
     if (await this.prisma.application.findUnique({ where: { jobId_candidateId: { jobId: job.id, candidateId: candidate.id } } })) {
       throw new ConflictException("Bu ilana daha önce başvurdunuz. Durumunu e-postanızdaki bağlantıdan takip edebilirsiniz.");
@@ -122,7 +123,7 @@ export class CareersService {
     const app = await this.prisma.application.findUnique({
       where: { trackingToken },
       include: {
-        candidate: { select: { name: true } },
+        candidate: { select: { name: true, poolConsent: true } },
         job: { select: { title: true, slug: true, location: true, company: { select: { name: true, slug: true, brandColor: true } } } },
         interviews: { where: { cancelledAt: null, startsAt: { gte: new Date(Date.now() - 86400_000) } }, orderBy: { startsAt: "asc" } },
         activities: { where: { type: { in: ["applied", "stage"] } }, orderBy: { createdAt: "asc" } },
@@ -139,12 +140,21 @@ export class CareersService {
       appliedAt: app.createdAt,
       status: closed ? "closed" : app.stage === "HIRED" || app.stage === "OFFER" ? "offer" : "active",
       withdrawn: app.rejectReason === WITHDRAWN,
+      poolConsent: app.candidate.poolConsent,
       steps: CANDIDATE_STEPS.map((s, i) => ({ label: s.label, done: !closed && i < current, current: i === current })),
       stageLabel: closed ? "Süreç tamamlandı" : STAGE_LABEL[app.stage],
       interviews: app.interviews.map((i) => ({ id: i.id, title: i.title, startsAt: i.startsAt, durationMin: i.durationMin, location: i.location })),
       invite: closed || app.stage === "HIRED" ? null : await this.invites.forCandidate(app.id),
       emails: app.emails,
     };
+  }
+
+  /** Aday yetenek havuzu onayını geri çeker; kişisel veriler artık başka ilanlar için önerilmez. */
+  async leavePool(trackingToken: string) {
+    const app = await this.prisma.application.findUnique({ where: { trackingToken }, select: { candidateId: true } });
+    if (!app) throw new NotFoundException("Başvuru bulunamadı.");
+    await this.prisma.candidate.update({ where: { id: app.candidateId }, data: { poolConsent: false } });
+    return { ok: true };
   }
 
   async withdraw(trackingToken: string) {

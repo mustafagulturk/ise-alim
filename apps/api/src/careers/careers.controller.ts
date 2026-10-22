@@ -51,6 +51,13 @@ export class CareersController {
     return this.careers.withdraw(token);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post("track/:token/leave-pool")
+  leavePool(@Param("token") token: string) {
+    return this.careers.leavePool(token);
+  }
+
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(200)
   @Post("track/:token/book")

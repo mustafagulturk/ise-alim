@@ -29,6 +29,7 @@ export function ApplyForm({ slug, jobSlug, color, company }: { slug: string; job
     const data = new FormData(e.currentTarget);
     if (file) data.set("cv", file);
     data.set("kvkk", data.get("kvkk") ? "true" : "false");
+    data.set("pool", data.get("pool") ? "true" : "false");
     const ref = new URLSearchParams(location.search).get("kaynak");
     if (ref) data.set("source", ref);
     setLoading(true);
@@ -121,6 +122,10 @@ export function ApplyForm({ slug, jobSlug, color, company }: { slug: string; job
       <label className={clsx("flex items-start gap-2.5 text-xs leading-5 text-slate-600 dark:text-slate-300", errors.kvkk && "text-rose-600")}>
         <input type="checkbox" name="kvkk" className="mt-1" style={{ accentColor: color }} />
         <span>Kişisel verilerimin işe alım süreci kapsamında işlenmesine ve CV'min yapay zekâ destekli araçlarla, kimlik bilgilerim maskelenerek ön değerlendirmeden geçirilmesine izin veriyorum (KVKK aydınlatma metni).</span>
+      </label>
+      <label className="-mt-2 flex items-start gap-2.5 text-xs leading-5 text-slate-600 dark:text-slate-300">
+        <input type="checkbox" name="pool" className="mt-1" style={{ accentColor: color }} />
+        <span>İsteğe bağlı: Bu pozisyon olmasa da başvurumun ileride açılacak uygun pozisyonlar için değerlendirilmesini istiyorum. Onayımı başvuru takip sayfasından dilediğim zaman geri çekebilirim.</span>
       </label>
 
       <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl font-medium text-white shadow-lg transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60" style={{ background: color, boxShadow: `0 10px 24px -10px ${color}` }}>

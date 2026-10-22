@@ -156,6 +156,8 @@ model Candidate {
   phone        String?
   city         String?
   linkedin     String?
+  /// Aday, başka uygun pozisyonlar için de değerlendirilmeye onay verdi mi (KVKK açık rıza).
+  poolConsent  Boolean       @default(false)
   createdAt    DateTime      @default(now())
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   applications Application[]

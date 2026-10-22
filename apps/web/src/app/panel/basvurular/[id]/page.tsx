@@ -12,6 +12,7 @@ import { InterviewDialog } from "@/components/InterviewDialog";
 import { KitDialog } from "@/components/KitDialog";
 import { RejectDialog } from "@/components/RejectDialog";
 import { ScorecardDialog } from "@/components/ScorecardDialog";
+import { OtherJobMatches } from "@/components/TalentPool";
 import { Timeline } from "@/components/Timeline";
 import { Avatar, Button, Skeleton, StageBadge, Tabs } from "@/components/ui";
 import { api, fileUrl, openFile } from "@/lib/api";
@@ -284,6 +285,8 @@ export default function ApplicationPage({ params }: { params: Promise<{ id: stri
               </ul>
             </div>
           )}
+
+          <OtherJobMatches applicationId={id} canAdd={editable} />
 
           {app.otherApplications.length > 0 && (
             <div className="card p-5">

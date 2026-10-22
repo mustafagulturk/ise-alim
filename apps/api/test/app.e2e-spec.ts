@@ -318,4 +318,45 @@ describe("işe alım akışı", () => {
     // Aynı davetle ikinci kez saat seçilemez.
     await http.post(`/api/track/${can.token}/book`).send({ startsAt: slots[2] }).expect(400);
   });
+
+  it("yetenek havuzu yalnızca onay veren adayları yeni ilana önerir ve hatta ekler", async () => {
+    const res = await http.post("/api/careers/kuzey-yazilim/jobs/backend-gelistirici/apply")
+      .field("name", "Pelin Havuz").field("email", "pelin@ornek.com").field("kvkk", "true").field("pool", "true")
+      .attach("cv", pdf, { filename: "cv.pdf", contentType: "application/pdf" }).expect(201);
+    const pelinApp = await prisma.application.findUniqueOrThrow({ where: { trackingToken: res.body.trackingToken } });
+    // Kuyruk sahte olduğu için worker'ın çıkaracağı CV metni elle yazılır; tüm adaylar aynı CV'ye sahip.
+    await prisma.application.updateMany({ where: { jobId }, data: { cvText: "Backend Geliştirici 01/2020 - Halen. Node.js ile API geliştirdim, PostgreSQL ile çalıştım." } });
+
+    const platform = await http.post("/api/jobs").set(auth(owner))
+      .send({ ...jobBody, title: "Platform Mühendisi", requirements: [{ text: "Node.js deneyimi", weight: 5, mustHave: true }, { text: "PostgreSQL", weight: 3, mustHave: false }] })
+      .expect(201);
+
+    const pool = await http.get(`/api/jobs/${platform.body.id}/talent-pool`).set(auth(owner)).expect(200);
+    // Aynı CV'ye sahip diğer adaylar onay vermediği için listede yok.
+    expect(pool.body.map((m: { candidate: { name: string } }) => m.candidate.name)).toEqual(["Pelin Havuz"]);
+    expect(pool.body[0].score).toBeGreaterThanOrEqual(50);
+    expect(pool.body[0].previous[0].job.title).toBe("Backend Geliştirici");
+
+    const matches = await http.get(`/api/applications/${pelinApp.id}/matches`).set(auth(owner)).expect(200);
+    expect(matches.body.consent).toBe(true);
+    expect(matches.body.matches[0].job.title).toBe("Platform Mühendisi");
+
+    queued.length = 0;
+    await http.post(`/api/jobs/${platform.body.id}/talent-pool/${pool.body[0].candidate.id}`).set(auth(owner)).expect(201);
+    expect(queued.map((q) => q.name)).toEqual(["analyze", "send"]);
+    await http.post(`/api/jobs/${platform.body.id}/talent-pool/${pool.body[0].candidate.id}`).set(auth(owner)).expect(409);
+    const board = await http.get(`/api/jobs/${platform.body.id}/applications`).set(auth(owner)).expect(200);
+    expect(board.body[0].source).toBe("Yetenek havuzu");
+
+    const ece = await prisma.candidate.findFirstOrThrow({ where: { email: "ece@ornek.com" } });
+    await http.post(`/api/jobs/${platform.body.id}/talent-pool/${ece.id}`).set(auth(owner)).expect(400);
+
+    // Aday onayını geri çekince başka ilanlara önerilmez.
+    const track = await http.get(`/api/track/${res.body.trackingToken}`).expect(200);
+    expect(track.body.poolConsent).toBe(true);
+    await http.post(`/api/track/${res.body.trackingToken}/leave-pool`).expect(200);
+    const third = await http.post("/api/jobs").set(auth(owner)).send({ ...jobBody, title: "Kıdemli Backend" }).expect(201);
+    const empty = await http.get(`/api/jobs/${third.body.id}/talent-pool`).set(auth(owner)).expect(200);
+    expect(empty.body).toHaveLength(0);
+  });
 });

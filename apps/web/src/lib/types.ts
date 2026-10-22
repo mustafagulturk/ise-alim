@@ -96,7 +96,7 @@ export interface Analysis {
 
 export interface Activity {
   id: string;
-  type: "applied" | "stage" | "note" | "scored" | "email" | "interview" | "scorecard" | "invite" | "booked";
+  type: "applied" | "stage" | "note" | "scored" | "email" | "interview" | "scorecard" | "invite" | "booked" | "sourced";
   data: Record<string, unknown>;
   createdAt: string;
   actor: { id: string; name: string } | null;
@@ -223,4 +223,26 @@ export interface Paged<T> {
   page: number;
   pageSize: number;
   items: T[];
+}
+
+export interface MatchSummary {
+  score: number;
+  met: number;
+  total: number;
+  highlights: string[];
+  mustHaveMissing: string[];
+  skills: string[];
+  experienceYears: number | null;
+}
+
+export interface PoolMatch extends MatchSummary {
+  candidate: { id: string; name: string; city: string | null };
+  previous: { id: string; stage: Stage; maxStage: Stage; score: number | null; createdAt: string; job: { id: string; title: string } }[];
+  silverMedalist: boolean;
+}
+
+export interface JobMatches {
+  consent: boolean;
+  candidateId: string;
+  matches: (MatchSummary & { job: { id: string; title: string; department: string } })[];
 }

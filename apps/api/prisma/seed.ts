@@ -62,6 +62,8 @@ function buildCv(role: RoleProfile, quality: number): CvData & { years: number }
   const title = pick(role.titles);
 
   const skills = role.skills.filter((_, i) => rnd() < Math.min(0.92, 0.08 + quality * 0.85 - i * 0.06));
+  // Adayların bir kısmı full stack: diğer rolün becerilerini de taşır.
+  if (role.crossover && rnd() < 0.2 + quality * 0.5) skills.push(...role.crossover.filter((_, i) => i === 0 || rnd() < 0.6));
   const jobs = years > 6 ? 3 : years > 2.5 ? 2 : 1;
   const companies = [...role.companies].sort(() => rnd() - 0.5);
   const experience: CvData["experience"] = [];
@@ -181,7 +183,7 @@ async function main() {
       const createdAt = ago(Math.floor(rnd() * 27) + (i < 2 ? 4 : 0));
 
       const candidate = await prisma.candidate.create({
-        data: { companyId: company.id, name: cv.name, email: cv.email, phone: cv.phone, city: cv.city, createdAt },
+        data: { companyId: company.id, name: cv.name, email: cv.email, phone: cv.phone, city: cv.city, poolConsent: rnd() < 0.7, createdAt },
       });
       const app = await prisma.application.create({
         data: {
@@ -225,6 +227,8 @@ async function main() {
       if (age < 3) path = [];
       else if (rank === 0) path = role.key === "frontend" || role.key === "sales" ? ["SCREENING", "INTERVIEW", "OFFER", "HIRED"] : ["SCREENING", "INTERVIEW", "OFFER"];
       else if (rank <= 2) path = ["SCREENING", "INTERVIEW"];
+      // Mülakata kadar gelip başka adayla ilerlenen "ikinci tercih": yetenek havuzunda öne çıkar.
+      else if (rank === 3 && age > 10 && scored.length >= 8) path = ["SCREENING", "INTERVIEW", "REJECTED"];
       else if (s.mustMissing && age > 6) path = rnd() < 0.5 ? ["REJECTED"] : ["SCREENING", "REJECTED"];
       else if (rank <= 5) path = ["SCREENING"];
       else if (age > 12 && rnd() < 0.4) path = ["SCREENING", "REJECTED"];
@@ -270,6 +274,8 @@ const NOTES = [
   "Bir ay ihbar süresi var, başlangıç tarihi için bunu hesaba katalım.",
   "Mülakatta sistem tasarımı sorusunda biraz zorlandı ama düşünce süreci net.",
 ];
+
+const rejectReason = (path: Stage[]) => (path.includes("INTERVIEW") ? "Başka bir adayla ilerlendi" : "Zorunlu kriterleri karşılamıyor");
 
 async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, companyId: string, recruiters: string[], panel: string[]) {
   let at = from.getTime();
@@ -334,7 +340,7 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
       });
       await sendEmail(companyId, appId, "interview", app.candidate.name, jobTitle, app.trackingToken, new Date(at));
     }
-    const reason = next === "REJECTED" ? "Zorunlu kriterleri karşılamıyor" : undefined;
+    const reason = next === "REJECTED" ? rejectReason(path) : undefined;
     await prisma.activity.create({
       data: { applicationId: appId, actorId: actor, type: "stage", data: { from: stage, to: next, ...(reason ? { reason } : {}) }, createdAt: new Date(at + 60_000) },
     });
@@ -357,7 +363,7 @@ async function walk(appId: string, path: Stage[], from: Date, jobTitle: string, 
         stage,
         maxStage,
         stageChangedAt: new Date(at),
-        rejectReason: stage === "REJECTED" ? "Zorunlu kriterleri karşılamıyor" : null,
+        rejectReason: stage === "REJECTED" ? rejectReason(path) : null,
         hiredAt: stage === "HIRED" ? new Date(at) : null,
       },
     });

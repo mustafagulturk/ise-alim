@@ -23,6 +23,19 @@ Başvurunuzu inceledik ve sizinle tanışmak istiyoruz. Mülakat detayları içi
 Görüşmek üzere,
 {sirket} İşe Alım Ekibi`,
   },
+  sourced: {
+    label: "Yetenek havuzundan davet",
+    subject: "{sirket} | {pozisyon} pozisyonu için de değerlendirmeye aldık",
+    body: `Merhaba {aday},
+
+Daha önceki başvurunda başka pozisyonlar için de değerlendirilmeye onay vermiştin. Profilinin {pozisyon} pozisyonuna da uygun olduğunu düşünüyoruz ve seni bu sürece dahil ettik.
+
+Bu başvurunun durumunu buradan takip edebilir, istersen geri çekebilirsin:
+{takip_linki}
+
+Sevgiler,
+{sirket} İşe Alım Ekibi`,
+  },
   schedule: {
     label: "Mülakat saati seçimi",
     subject: "{sirket} | {pozisyon} mülakatı için saatini seç",

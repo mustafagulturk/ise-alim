@@ -14,6 +14,7 @@ interface Tracking {
   appliedAt: string;
   status: "active" | "offer" | "closed";
   withdrawn: boolean;
+  poolConsent: boolean;
   steps: { label: string; done: boolean; current: boolean }[];
   stageLabel: string;
   interviews: { id: string; title: string; startsAt: string; durationMin: number; location: string }[];
@@ -94,6 +95,11 @@ export default function TrackPage({ params }: { params: Promise<{ token: string 
   const { token } = use(params);
   const [confirm, setConfirm] = useState(false);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["track", token], queryFn: () => get(token), retry: false });
+  const leavePool = useMutation({
+    mutationFn: () => fetch(`/api/track/${token}/leave-pool`, { method: "POST" }).then((r) => { if (!r.ok) throw new Error("İşlem yapılamadı"); }),
+    onSuccess: () => { toast.success("Yetenek havuzundan çıktın", { description: "Bilgilerin başka pozisyonlar için önerilmeyecek." }); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
   const withdraw = useMutation({
     mutationFn: () => fetch(`/api/track/${token}/withdraw`, { method: "POST" }).then((r) => { if (!r.ok) throw new Error("İşlem yapılamadı"); }),
     onSuccess: () => { toast.success("Başvurunuz geri çekildi"); setConfirm(false); refetch(); },
@@ -176,6 +182,11 @@ export default function TrackPage({ params }: { params: Promise<{ token: string 
           </div>
         )}
 
+        {data.poolConsent && (
+          <p className="text-center text-sm text-slate-500">
+            Diğer uygun pozisyonlar için de değerlendiriliyorsun. <button onClick={() => leavePool.mutate()} disabled={leavePool.isPending} className="font-medium underline">Onayımı geri çek</button>
+          </p>
+        )}
         {data.status === "active" && (
           <p className="text-center text-sm text-slate-500">
             Fikrini mi değiştirdin? <button onClick={() => setConfirm(true)} className="font-medium underline">Başvurumu geri çek</button>

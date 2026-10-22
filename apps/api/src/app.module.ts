@@ -25,6 +25,8 @@ import { JobsController } from "./jobs/jobs.controller";
 import { JobsService } from "./jobs/jobs.service";
 import { QueueRoot, Queues } from "./queue/queues";
 import { LiveGateway } from "./realtime/live.gateway";
+import { TalentController } from "./talent/talent.controller";
+import { TalentService } from "./talent/talent.service";
 
 export const Jwt = JwtModule.register({ global: true, secret: config().JWT_SECRET, signOptions: { expiresIn: "15m" } });
 
@@ -47,6 +49,7 @@ export const Jwt = JwtModule.register({ global: true, secret: config().JWT_SECRE
     CareersController,
     InterviewsController,
     AnalyticsController,
+    TalentController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -57,6 +60,7 @@ export const Jwt = JwtModule.register({ global: true, secret: config().JWT_SECRE
     CareersService,
     InterviewsService,
     InvitesService,
+    TalentService,
     AnalyticsService,
     EmailsService,
     LiveGateway,
