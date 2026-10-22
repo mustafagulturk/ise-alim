@@ -32,6 +32,22 @@ Backend **NestJS + PostgreSQL + Redis (BullMQ)**, arayüz **Next.js 15 + React 1
 - Dört kriterli değerlendirme formu ve öneri (Kesinlikle hayır → Kesinlikle evet)
 - Bir mülakatçı, **kendi formunu göndermeden diğerlerinin puanını göremez** (sunucuda zorlanır, arayüzde gizlemekle kalmaz)
 
+**Mülakat kiti**
+- Her mülakat için adaya özel soru seti: CV analizinde eksik ya da kısmen karşılanan gereksinimler önce sorulur, karşılananlar CV'deki cümle alıntılanarak doğrulanır
+- Her soruda "neden soruyoruz", iyi cevap işaretleri, dikkat edilecekler ve takip sorusu; soru sayısı mülakat süresine göre ayarlanır
+- Önceki mülakatlardaki notlar yeni kitte dikkate alınır; kültür/İK mülakatlarında davranışsal sorular ağırlık kazanır
+- Kit önce yerel üreticiyle anında hazırlanır, Claude varsa arka planda zenginleştirilir; değerlendirme formunda soru bazında not ve 👍/👎 tutulur
+
+**Aday kendi mülakat saatini seçer**
+- Mülakatçıların takviminden ortak boş saatler hesaplanır: hafta içi 09:00-18:00, öğle arası, mülakatlar arası 15 dk boşluk ve en az 12 saat önceden bildirim kuralı
+- İK önerilen saatleri tek tıkla seçip gönderir, aday takip sayfasından birini onaylar; mülakat, panel, kit ve onay e-postası otomatik oluşur
+- İki aday aynı anda aynı saati seçerse **Serializable işlemle** yalnızca biri kazanır, diğerine "saat doldu" denir; başka adaya gönderilmiş bekleyen saatler yeni önerilerde dolu sayılır
+
+**Yetenek havuzu**
+- Aday başvururken isteğe bağlı olarak diğer pozisyonlar için değerlendirilmeye onay verir (KVKK açık rıza), takip sayfasından geri çekebilir
+- Yeni bir ilanda onay vermiş eski adaylar bu ilanın gereksinimlerine göre puanlanır; mülakata kadar gelip elenen "ikinci tercih" adaylar üstte gösterilir
+- "Hatta ekle" ile CV kopyalanır, yeni başvuru açılır ve yeniden analiz edilir; aday profilinde diğer açık ilanlara uygunluğu görünür
+
 **Canlı çalışma**
 - Yeni başvuru geldiğinde, CV puanlandığında ya da bir aday taşındığında ekiptekilerin ekranı anında tazelenir ve bildirim düşer
 - Redis pub/sub → Socket.IO; birden fazla API kopyası çalışsa da olaylar herkese ulaşır
@@ -69,6 +85,9 @@ Backend **NestJS + PostgreSQL + Redis (BullMQ)**, arayüz **Next.js 15 + React 1
 | ![Arama](docs/ekranlar/06-cv-arama.png) CV içinde tam metin arama | ![Analitik](docs/ekranlar/07-analitik.png) Analitik |
 | ![Mülakatlar](docs/ekranlar/08-mulakatlar.png) Mülakatlar | ![Kariyer](docs/ekranlar/09-kariyer-ilani.png) Kariyer sayfası |
 | ![Takip](docs/ekranlar/10-basvuru-takibi.png) Aday başvuru takibi | ![Koyu tema](docs/ekranlar/11-karanlik-mod.png) Koyu tema |
+| ![Mülakat kiti](docs/ekranlar/13-mulakat-kiti.png) Adaya özel mülakat kiti | ![Kitli değerlendirme](docs/ekranlar/14-kitli-degerlendirme.png) Soru bazında değerlendirme |
+| ![Saat önerileri](docs/ekranlar/15-saat-onerileri.png) Mülakatçıların boş saatleri | ![Aday saat seçimi](docs/ekranlar/16-aday-saat-secimi.png) Adayın saat seçmesi |
+| ![Yetenek havuzu](docs/ekranlar/17-yetenek-havuzu.png) Yetenek havuzu | |
 
 <p align="center"><img src="docs/ekranlar/12-mobil.png" width="280" alt="Mobil"></p>
 
@@ -172,8 +191,9 @@ Tüm uçlar `/api` altındadır.
 | Kimlik | `POST auth/register` `auth/login` `auth/refresh` `auth/logout` · `GET auth/me` |
 | İlanlar | `GET/POST jobs` · `GET/PUT/DELETE jobs/:id` · `PATCH jobs/:id/status` · `POST jobs/:id/rescore` · `POST jobs/suggest-requirements` |
 | Başvurular | `GET jobs/:jobId/applications` · `GET applications?q=` · `GET applications/compare` · `GET applications/:id` · `GET applications/:id/cv` · `PATCH applications/:id/move` · `POST applications/bulk` · `POST applications/:id/notes` · `POST applications/:id/rescore` · `POST applications/:id/emails` |
-| Mülakatlar | `GET interviews` · `POST applications/:id/interviews` · `PUT interviews/:id/scorecard` · `PATCH interviews/:id/cancel` · `GET interviews/:id/ics` |
-| Kariyer (herkese açık) | `GET careers/:slug` · `GET careers/:slug/jobs/:jobSlug` · `POST careers/:slug/jobs/:jobSlug/apply` · `GET track/:token` · `POST track/:token/withdraw` |
+| Mülakatlar | `GET interviews` · `POST applications/:id/interviews` · `PUT interviews/:id/scorecard` · `PATCH interviews/:id/cancel` · `GET interviews/:id/ics` · `POST interviews/:id/kit` · `GET applications/:id/invite-slots` · `POST applications/:id/invites` · `PATCH invites/:id/cancel` |
+| Yetenek havuzu | `GET jobs/:id/talent-pool` · `POST jobs/:id/talent-pool/:candidateId` · `GET applications/:id/matches` |
+| Kariyer (herkese açık) | `GET careers/:slug` · `GET careers/:slug/jobs/:jobSlug` · `POST careers/:slug/jobs/:jobSlug/apply` · `GET track/:token` · `POST track/:token/withdraw` · `POST track/:token/book` · `GET track/:token/interviews/:id/ics` · `POST track/:token/leave-pool` |
 | Şirket | `GET/PATCH company` · `GET/POST company/members` · `GET company/emails` · `GET analytics` |
 
 ## Testler
@@ -183,7 +203,7 @@ createdb kadro_test
 npm test
 ```
 
-30 test: puan hesabı, KVKK maskeleme, deneyim yılı çıkarma ve Türkçe eşleştirme için birim testleri; kayıt ve giriş, yenileme token'ının tekrar kullanımı, şirketler arası veri izolasyonu, mülakatçı yetkileri, başvuru, aşama değiştirme ve tam metin arama için uçtan uca testler. GitHub Actions her push'ta PostgreSQL ve Redis ile testleri, tip kontrolünü ve derlemeyi çalıştırır.
+40 test: puan hesabı, KVKK maskeleme, deneyim yılı çıkarma, Türkçe eşleştirme, mülakat kiti ve boş saat hesabı için birim testleri; kayıt ve giriş, yenileme token'ının tekrar kullanımı, şirketler arası veri izolasyonu, mülakatçı yetkileri, başvuru, aşama değiştirme, tam metin arama, adayın saat seçmesi (aynı saate ikinci rezervasyonun reddi dahil) ve yetenek havuzu için uçtan uca testler. GitHub Actions her push'ta PostgreSQL ve Redis ile testleri, tip kontrolünü ve derlemeyi çalıştırır.
 
 ## Proje yapısı
 
